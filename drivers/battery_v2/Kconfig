@@ -72,12 +72,6 @@ config MULTI_CHARGING
 	help
 	Say Y to include support for multi charger ICs
 	
-config BATTERY_AGE_FORECAST
-	bool "battery age forecast"
-	default n
-	help
-	Say Y to use enable age forecast algorithm.
-	
 config BATTERY_AGE_FORECAST_DETACHABLE
 	tristate "battery age forecast for detachable"
 	default n
