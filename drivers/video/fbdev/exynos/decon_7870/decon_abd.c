@@ -301,6 +301,7 @@ static const char *sync_status_str(int status)
 	return "error";
 }
 
+#ifdef CONFIG_DECON_EVENT_LOG
 static int decon_debug_fto_print(struct seq_file *m, struct abd_trace *trace)
 {
 	int i = 0;
@@ -319,7 +320,6 @@ static int decon_debug_fto_print(struct seq_file *m, struct abd_trace *trace)
 		seq_printf(m, "time: %lu.%06lu, %d, %s: %s\n",
 			(unsigned long)tv.tv_sec, tv.tv_usec, log->winid, log->fence.name, sync_status_str(atomic_read(&log->fence.status)));
 	}
-
 	return 0;
 }
 
@@ -346,9 +346,9 @@ static int decon_debug_ss_log_print(struct seq_file *m)
 	}
 
 	seq_puts(m, "\n");
-
 	return 0;
 }
+#endif
 
 static int decon_debug_show(struct seq_file *m, void *unused)
 {
@@ -361,6 +361,7 @@ static int decon_debug_show(struct seq_file *m, void *unused)
 	decon_debug_pin_print(m, &abd->pin[ABD_PIN_DET]);
 	decon_debug_pin_print(m, &abd->pin[ABD_PIN_ERR]);
 
+#ifdef CONFIG_DECON_EVENT_LOG
 	seq_printf(m, "========== FTO DEBUG ==========\n");
 	decon_debug_fto_print(m, &abd->f_first);
 	decon_debug_fto_print(m, &abd->f_lcdon);
@@ -368,6 +369,7 @@ static int decon_debug_show(struct seq_file *m, void *unused)
 
 	seq_printf(m, "===============================\n");
 	decon_debug_ss_log_print(m);
+#endif
 
 	return 0;
 }
