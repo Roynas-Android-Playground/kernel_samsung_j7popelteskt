@@ -78,6 +78,7 @@ struct thread_struct {
 	struct cpu_context	cpu_context;	/* cpu context */
 	unsigned long		tp_value;
 	struct fpsimd_state	fpsimd_state;
+	struct fpsimd_kernel_state fpsimd_kernel_state;
 	unsigned long		fault_address;	/* fault info */
 	unsigned long		fault_code;	/* ESR_EL1 value */
 	struct debug_info	debug;		/* debugging */
@@ -165,8 +166,5 @@ static inline void spin_lock_prefetch(const void *x)
 #define HAVE_ARCH_PICK_MMAP_LAYOUT
 
 #endif
-
-void cpu_enable_pan(void *__unused);
-void cpu_enable_uao(void *__unused);
 
 #endif /* __ASM_PROCESSOR_H */
