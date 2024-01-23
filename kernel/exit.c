@@ -55,14 +55,12 @@
 #include <linux/shm.h>
 #include <linux/kcov.h>
 
+#include "sched/tune.h"
+
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
 #include <asm/pgtable.h>
 #include <asm/mmu_context.h>
-
-#ifdef CONFIG_SECURITY_DEFEX
-#include <linux/defex.h>
-#endif
 
 static void exit_mm(struct task_struct *tsk);
 
@@ -675,10 +673,6 @@ void do_exit(long code)
 	int group_dead;
 	TASKS_RCU(int tasks_rcu_i);
 
-#ifdef CONFIG_SECURITY_DEFEX
-	task_defex_zero_creds(current);
-#endif
-
 	profile_task_exit(tsk);
 	kcov_task_exit(tsk);
 
@@ -723,6 +717,9 @@ void do_exit(long code)
 	}
 
 	exit_signals(tsk);  /* sets PF_EXITING */
+
+	schedtune_exit_task(tsk);
+
 	/*
 	 * tsk->flags are checked in the futex code to protect against
 	 * an exiting task cleaning up the robust pi futexes.

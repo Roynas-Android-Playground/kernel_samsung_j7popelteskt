@@ -141,7 +141,7 @@ PHONY += $(MAKECMDGOALS) sub-make
 $(filter-out _all sub-make $(CURDIR)/Makefile, $(MAKECMDGOALS)) _all: sub-make
 	@:
 
-sub-make: FORCE
+sub-make:
 	$(Q)$(MAKE) -C $(KBUILD_OUTPUT) KBUILD_SRC=$(CURDIR) \
 	-f $(CURDIR)/Makefile $(filter-out _all sub-make,$(MAKECMDGOALS))
 
@@ -369,11 +369,6 @@ PERL		= perl
 PYTHON		= python
 CHECK		= sparse
 
-ifeq ($(CONFIG_FIPS_FMP),)
-    READELF        = $(CROSS_COMPILE)readelf
-    export READELF
-endif
-
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 CFLAGS_MODULE   =
@@ -408,7 +403,6 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
-		   -Werror \
 		   -std=gnu89
 
 KBUILD_AFLAGS_KERNEL :=
@@ -479,26 +473,6 @@ asm-generic:
 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.asm-generic \
 	            src=uapi/asm obj=arch/$(SRCARCH)/include/generated/uapi/asm
 
-ifneq ($(PLATFORM_VERSION), )
-PLATFORM_VERSION_NUMBER=$(shell $(CONFIG_SHELL) $(srctree)/scripts/android-version.sh $(PLATFORM_VERSION))
-MAJOR_VERSION=$(shell $(CONFIG_SHELL) $(srctree)/scripts/android-major-version.sh $(PLATFORM_VERSION))
-export ANDROID_VERSION=$(PLATFORM_VERSION_NUMBER)
-export ANDROID_MAJOR_VERSION=$(MAJOR_VERSION)
-KBUILD_CFLAGS += -DANDROID_VERSION=$(PLATFORM_VERSION_NUMBER)
-KBUILD_CFLAGS += -DANDROID_MAJOR_VERSION=$(MAJOR_VERSION)
-# Example
-SELINUX_DIR=$(shell $(CONFIG_SHELL) $(srctree)/scripts/find_matching_major.sh "$(srctree)" "security/selinux" "$(ANDROID_MAJOR_VERSION)")
-else
-export ANDROID_VERSION=990000
-KBUILD_CFLAGS += -DANDROID_VERSION=990000
-endif
-PHONY += replace_dirs
-replace_dirs:
-ifneq ($(PLATFORM_VERSION), )
-# Example
-	@echo "replace selinux from $(SELINUX_DIR)"
-	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/replace_dir.sh "$(srctree)" "security/selinux" "$(SELINUX_DIR)"
-endif
 # To make sure we do not include .config for any of the *config targets
 # catch them early, and hand them over to scripts/kconfig/Makefile
 # It is allowed to specify more targets when calling make, including
@@ -561,10 +535,10 @@ ifeq ($(config-targets),1)
 include $(srctree)/arch/$(SRCARCH)/Makefile
 export KBUILD_DEFCONFIG KBUILD_KCONFIG
 
-config: scripts_basic outputmakefile replace_dirs FORCE
+config: scripts_basic outputmakefile FORCE
 	$(Q)$(MAKE) $(build)=scripts/kconfig $@
 
-%config: scripts_basic outputmakefile replace_dirs FORCE
+%config: scripts_basic outputmakefile FORCE
 	$(Q)$(MAKE) $(build)=scripts/kconfig $@
 
 else
@@ -812,28 +786,10 @@ endif
 
 include $(srctree)/scripts/Makefile.extrawarn
 
-#Disable the whole of the following block to disable LKM AUTH
-ifeq ($(CONFIG_TIMA_LKMAUTH),y)
-ifeq ($(CONFIG_TIMA),y)
-ifeq ($(CONFIG_TRUSTONIC_TEE),y)
-    KBUILD_CFLAGS += -DTIMA_LKM_AUTH_ENABLED -Idrivers/gud/gud-exynos7870/MobiCoreDriver/mci/
-    KBUILD_AFLAGS += -DTIMA_LKM_AUTH_ENABLED
-endif
-endif
-endif
-
 # Add user supplied CPPFLAGS, AFLAGS and CFLAGS as the last assignments
 KBUILD_CPPFLAGS += $(KCPPFLAGS)
 KBUILD_AFLAGS += $(KAFLAGS)
 KBUILD_CFLAGS += $(KCFLAGS)
-
-ifneq ($(SEC_BUILD_CONF_USE_FINGERPRINT_TZ), false)
-  ifeq ($(CONFIG_SENSORS_FINGERPRINT), y)
-    ifneq ($(CONFIG_SEC_FACTORY), y)
-      export KBUILD_FP_SENSOR_CFLAGS := -DENABLE_SENSORS_FPRINT_SECURE
-    endif
-  endif
-endif
 
 # Use --build-id when available.
 LDFLAGS_BUILD_ID = $(patsubst -Wl$(comma)%,%,\
@@ -963,7 +919,7 @@ quiet_cmd_link-vmlinux = LINK    $@
 
 # Include targets which we want to
 # execute if the rest of the kernel build went well.
-vmlinux: scripts/link-vmlinux.sh print_info $(vmlinux-deps) FORCE
+vmlinux: scripts/link-vmlinux.sh $(vmlinux-deps) FORCE
 ifdef CONFIG_HEADERS_CHECK
 	$(Q)$(MAKE) -f $(srctree)/Makefile headers_check
 endif
@@ -974,10 +930,6 @@ ifdef CONFIG_BUILD_DOCSRC
 	$(Q)$(MAKE) $(build)=Documentation
 endif
 	+$(call if_changed,link-vmlinux)
-
-PHONY += print_info
-print_info:
-	@echo "INFO: CC is $(CC)"
 
 # The actual objects are generated when descending,
 # make sure no implicit rule kicks in
@@ -1033,7 +985,7 @@ prepare1: prepare2 $(version_h) include/generated/utsrelease.h \
 
 archprepare: archheaders archscripts prepare1 scripts_basic
 
-prepare0: archprepare FORCE
+prepare0: archprepare
 	$(Q)$(MAKE) $(build)=.
 
 # All the preparing..
@@ -1083,7 +1035,7 @@ INSTALL_FW_PATH=$(INSTALL_MOD_PATH)/lib/firmware
 export INSTALL_FW_PATH
 
 PHONY += firmware_install
-firmware_install: FORCE
+firmware_install:
 	@mkdir -p $(objtree)/firmware
 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.fwinst obj=firmware __fw_install
 
@@ -1105,7 +1057,7 @@ PHONY += archscripts
 archscripts:
 
 PHONY += __headers
-__headers: $(version_h) scripts_basic asm-generic archheaders archscripts FORCE
+__headers: $(version_h) scripts_basic asm-generic archheaders archscripts
 	$(Q)$(MAKE) $(build)=scripts build_unifdef
 
 PHONY += headers_install_all

@@ -27,9 +27,6 @@
 #include "debugfs.h"
 #include "wext-compat.h"
 #include "rdev-ops.h"
-#if 1 /* 20151217 Temporal patch for page allocation fail when wifi on */
-#include <linux/vmalloc.h>
-#endif
 
 /* name for sysfs, %d is appended */
 #define PHY_NAME "phy"
@@ -310,6 +307,20 @@ static void cfg80211_destroy_iface_wk(struct work_struct *work)
 	rtnl_unlock();
 }
 
+static void cfg80211_sched_scan_stop_wk(struct work_struct *work)
+{
+	struct cfg80211_registered_device *rdev;
+
+	rdev = container_of(work, struct cfg80211_registered_device,
+			   sched_scan_stop_wk);
+
+	rtnl_lock();
+
+	__cfg80211_stop_sched_scan(rdev, false);
+
+	rtnl_unlock();
+}
+
 /* exported functions */
 
 struct wiphy *wiphy_new(const struct cfg80211_ops *ops, int sizeof_priv)
@@ -330,11 +341,7 @@ struct wiphy *wiphy_new(const struct cfg80211_ops *ops, int sizeof_priv)
 
 	alloc_size = sizeof(*rdev) + sizeof_priv;
 
-#if 1 /* 20151217 Temporal patch for page allocation fail when wifi on */
-	rdev = vzalloc(alloc_size);
-#else
 	rdev = kzalloc(alloc_size, GFP_KERNEL);
-#endif
 	if (!rdev)
 		return NULL;
 
@@ -345,11 +352,7 @@ struct wiphy *wiphy_new(const struct cfg80211_ops *ops, int sizeof_priv)
 	if (unlikely(rdev->wiphy_idx < 0)) {
 		/* ugh, wrapped! */
 		atomic_dec(&wiphy_counter);
-#if 1 /* 20151217 Temporal patch for page allocation fail when wifi on */
-		vfree(rdev);
-#else
 		kfree(rdev);
-#endif
 		return NULL;
 	}
 
@@ -379,6 +382,7 @@ struct wiphy *wiphy_new(const struct cfg80211_ops *ops, int sizeof_priv)
 	INIT_LIST_HEAD(&rdev->destroy_list);
 	spin_lock_init(&rdev->destroy_list_lock);
 	INIT_WORK(&rdev->destroy_work, cfg80211_destroy_iface_wk);
+	INIT_WORK(&rdev->sched_scan_stop_wk, cfg80211_sched_scan_stop_wk);
 
 #ifdef CONFIG_CFG80211_DEFAULT_PS
 	rdev->wiphy.flags |= WIPHY_FLAG_PS_ON_BY_DEFAULT;
@@ -392,11 +396,7 @@ struct wiphy *wiphy_new(const struct cfg80211_ops *ops, int sizeof_priv)
 				   &rdev->rfkill_ops, rdev);
 
 	if (!rdev->rfkill) {
-#if 1 /* 20151217 Temporal patch for page allocation fail when wifi on */
-		vfree(rdev);
-#else
 		kfree(rdev);
-#endif
 		return NULL;
 	}
 
@@ -737,6 +737,7 @@ void wiphy_unregister(struct wiphy *wiphy)
 	flush_work(&rdev->event_work);
 	cancel_delayed_work_sync(&rdev->dfs_update_channels_wk);
 	flush_work(&rdev->destroy_work);
+	flush_work(&rdev->sched_scan_stop_wk);
 
 #ifdef CONFIG_PM
 	if (rdev->wiphy.wowlan_config && rdev->ops->set_wakeup)
@@ -758,11 +759,7 @@ void cfg80211_dev_free(struct cfg80211_registered_device *rdev)
 	}
 	list_for_each_entry_safe(scan, tmp, &rdev->bss_list, list)
 		cfg80211_put_bss(&rdev->wiphy, &scan->pub);
-#if 1 /* 20151217 Temporal patch for page allocation fail when wifi on */
-	vfree(rdev);
-#else
 	kfree(rdev);
-#endif
 }
 
 void wiphy_free(struct wiphy *wiphy)

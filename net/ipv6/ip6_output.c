@@ -566,10 +566,7 @@ int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
 	u8 *prevhdr, nexthdr = 0;
 	struct net *net = dev_net(skb_dst(skb)->dev);
 
-	err = ip6_find_1stfragopt(skb, &prevhdr);
-	if (err < 0)
-		goto fail;
-	hlen = err;
+	hlen = ip6_find_1stfragopt(skb, &prevhdr);
 	nexthdr = *prevhdr;
 
 	mtu = ip6_skb_dst_mtu(skb);
@@ -1206,16 +1203,14 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
 		np->cork.tclass = tclass;
 		if (rt->dst.flags & DST_XFRM_TUNNEL)
 			mtu = np->pmtudisc >= IPV6_PMTUDISC_PROBE ?
-			      ACCESS_ONCE(rt->dst.dev->mtu) : dst_mtu(&rt->dst);
+			      rt->dst.dev->mtu : dst_mtu(&rt->dst);
 		else
 			mtu = np->pmtudisc >= IPV6_PMTUDISC_PROBE ?
-			      ACCESS_ONCE(rt->dst.dev->mtu) : dst_mtu(rt->dst.path);
+			      rt->dst.dev->mtu : dst_mtu(rt->dst.path);
 		if (np->frag_size < mtu) {
 			if (np->frag_size)
 				mtu = np->frag_size;
 		}
-		if (mtu < IPV6_MIN_MTU)
-			return -EINVAL;
 		cork->fragsize = mtu;
 		if (dst_allfrag(rt->dst.path))
 			cork->flags |= IPCORK_ALLFRAG;
@@ -1299,12 +1294,11 @@ emsgsize:
 
 	skb = skb_peek_tail(&sk->sk_write_queue);
 	cork->length += length;
-	if ((skb && skb_is_gso(skb)) ||
-	    (((length + fragheaderlen) > mtu) &&
-	    (skb_queue_len(&sk->sk_write_queue) <= 1) &&
+	if (((length > mtu) ||
+	     (skb && skb_is_gso(skb))) &&
 	    (sk->sk_protocol == IPPROTO_UDP) &&
 	    (rt->dst.dev->features & NETIF_F_UFO) &&
-	    (sk->sk_type == SOCK_DGRAM))) {
+	    (sk->sk_type == SOCK_DGRAM)) {
 		err = ip6_ufo_append_data(sk, getfrag, from, length,
 					  hh_len, fragheaderlen,
 					  transhdrlen, mtu, flags, rt);

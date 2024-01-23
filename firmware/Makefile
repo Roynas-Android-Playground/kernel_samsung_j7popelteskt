@@ -207,8 +207,6 @@ fw-shipped-$(CONFIG_SENSORS_SSP_STM_V2) += ssp_crashed.fw
 # FPGA for IRIS
 fw-shipped-$(CONFIG_LEDS_IRIS_FPGA_ICE40XX) += ice40xx/ice40_fpga_iris_V01.fw
 
-fw-shipped-$(CONFIG_FIVE_TEE_DRIVER) += five/ffffffff000000000000000000000072.tlbin
-
 fw-shipped-all := $(fw-shipped-y) $(fw-shipped-m) $(fw-shipped-)
 
 quiet_cmd_ihex  = IHEX    $@

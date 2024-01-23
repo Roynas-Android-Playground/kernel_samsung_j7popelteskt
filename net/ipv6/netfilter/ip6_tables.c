@@ -404,7 +404,6 @@ ip6t_do_table(struct sk_buff *skb,
 					verdict = (unsigned int)(-v) - 1;
 					break;
 				}
-
 				if (*stackptr <= origptr)
 					e = get_entry(table_base,
 					    private->underflow[hook]);
@@ -575,14 +574,12 @@ static void cleanup_match(struct xt_entry_match *m, struct net *net)
 }
 
 static int
-check_entry(const struct ip6t_entry *e, const char *name)
+check_entry(const struct ip6t_entry *e)
 {
 	const struct xt_entry_target *t;
 
-	if (!ip6_checkentry(&e->ipv6)) {
-		duprintf("ip_tables: ip check failed %p %s.\n", e, name);
+	if (!ip6_checkentry(&e->ipv6))
 		return -EINVAL;
-	}
 
 	if (e->target_offset + sizeof(struct xt_entry_target) >
 	    e->next_offset)
@@ -673,10 +670,6 @@ find_check_entry(struct ip6t_entry *e, struct net *net, const char *name,
 	struct xt_mtchk_param mtpar;
 	struct xt_entry_match *ematch;
 
-	ret = check_entry(e, name);
-	if (ret)
-		return ret;
-
 	j = 0;
 	mtpar.net	= net;
 	mtpar.table     = name;
@@ -740,9 +733,11 @@ check_entry_size_and_hooks(struct ip6t_entry *e,
 			   unsigned int valid_hooks)
 {
 	unsigned int h;
+	int err;
 
 	if ((unsigned long)e % __alignof__(struct ip6t_entry) != 0 ||
-	    (unsigned char *)e + sizeof(struct ip6t_entry) >= limit) {
+	    (unsigned char *)e + sizeof(struct ip6t_entry) >= limit ||
+	    (unsigned char *)e + e->next_offset > limit) {
 		duprintf("Bad offset %p\n", e);
 		return -EINVAL;
 	}
@@ -753,6 +748,10 @@ check_entry_size_and_hooks(struct ip6t_entry *e,
 			 e, e->next_offset);
 		return -EINVAL;
 	}
+
+	err = check_entry(e);
+	if (err)
+		return err;
 
 	/* Check hooks & underflows */
 	for (h = 0; h < NF_INET_NUMHOOKS; h++) {
@@ -818,7 +817,6 @@ translate_table(struct net *net, struct xt_table_info *newinfo, void *entry0,
 
 	duprintf("translate_table: size %u\n", newinfo->size);
 	i = 0;
-
 	/* Walk through entries, checking offsets. */
 	xt_entry_foreach(iter, entry0, newinfo->size) {
 		ret = check_entry_size_and_hooks(iter, newinfo, entry0,
@@ -826,14 +824,12 @@ translate_table(struct net *net, struct xt_table_info *newinfo, void *entry0,
 						 repl->hook_entry,
 						 repl->underflow,
 						 repl->valid_hooks);
-		if (ret != 0) {
+		if (ret != 0)
 			return ret;
-		}
 		++i;
 		if (strcmp(ip6t_get_target(iter)->u.user.name,
-		    XT_ERROR_TARGET) == 0) {
+		    XT_ERROR_TARGET) == 0)
 			++newinfo->stacksize;
-		}
 	}
 
 	if (i != repl->num_entries) {
@@ -1298,10 +1294,8 @@ do_replace(struct net *net, const void __user *user, unsigned int len)
 
 	ret = __do_replace(net, tmp.name, tmp.valid_hooks, newinfo,
 			   tmp.num_counters, tmp.counters);
-			   
 	if (ret)
 		goto free_newinfo_untrans;
-	
 	return 0;
 
  free_newinfo_untrans:
@@ -1507,7 +1501,8 @@ check_compat_entry_size_and_hooks(struct compat_ip6t_entry *e,
 
 	duprintf("check_compat_entry_size_and_hooks %p\n", e);
 	if ((unsigned long)e % __alignof__(struct compat_ip6t_entry) != 0 ||
-	    (unsigned char *)e + sizeof(struct compat_ip6t_entry) >= limit) {
+	    (unsigned char *)e + sizeof(struct compat_ip6t_entry) >= limit ||
+	    (unsigned char *)e + e->next_offset > limit) {
 		duprintf("Bad offset %p, limit = %p\n", e, limit);
 		return -EINVAL;
 	}
@@ -1520,7 +1515,7 @@ check_compat_entry_size_and_hooks(struct compat_ip6t_entry *e,
 	}
 
 	/* For purposes of check_entry casting the compat entry is fine */
-	ret = check_entry((struct ip6t_entry *)e, name);
+	ret = check_entry((struct ip6t_entry *)e);
 	if (ret)
 		return ret;
 
