@@ -590,7 +590,7 @@ static ssize_t mtp_read(struct file *fp, char __user *buf,
 requeue_req:
 	/* queue a request */
 	req = dev->rx_req[0];
-	req->length = len;
+	req->length = count;
 	dev->rx_done = 0;
 	set_read_req_length(req);
 	ret = usb_ep_queue(dev->ep_out, req, GFP_KERNEL);
