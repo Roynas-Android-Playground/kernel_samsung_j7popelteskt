@@ -22,7 +22,6 @@
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 
-#define DEBUG
 
 #define ENABLE 1
 #define DISABLE 0
